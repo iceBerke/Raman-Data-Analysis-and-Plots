@@ -39,6 +39,7 @@
 
 import numpy as np
 import pandas as pd
+import warnings
 from pathlib import Path
 from scipy.signal import savgol_filter
 
@@ -99,9 +100,9 @@ def snap_inward_bounds(x, a, b):
         raise ValueError(f"Range [{a}, {b}] is outside data range [{x[0]}, {x[-1]}].")
     
     i0 = np.searchsorted(x, a, side="left")
-    print(i0)
+    #print(i0)
     i1 = np.searchsorted(x, b, side="right") - 1
-    print(i1)
+    #print(i1)
 
     if i0 >= len(x) or i1 < 0 or i0 > i1:
         raise ValueError("No points remain after snapping bounds inward.")
@@ -109,7 +110,7 @@ def snap_inward_bounds(x, a, b):
     return i0, i1
 
 
-def auc_inward(x, y, a, b, baseline, smooth, smooth_window, smooth_polyorder):
+def auc_inward(x, y, a, b, baseline, baseline_poly_order, smooth, smooth_window, smooth_polyorder):
     
     x = np.asarray(x)
     y = np.asarray(y)
@@ -145,15 +146,37 @@ def auc_inward(x, y, a, b, baseline, smooth, smooth_window, smooth_polyorder):
         y0, y1 = ys[0], ys[-1]
         base = y0 + (y1 - y0) * (xs - x0) / (x1 - x0)
         ys = ys - base
+
+        # Warning for improper baseline correction
+        if np.trapezoid(ys, xs) < 0:
+            warnings.warn(f"> Negative AUC detected - baseline may be inappropriate")
+
+    elif baseline == "polynomial":
+        # Use only the edges (first/last ~10% of points) to define baseline
+        n_edge = max(5, len(xs) // 10)
+        x_base = np.concatenate([xs[:n_edge], xs[-n_edge:]])
+        y_base = np.concatenate([ys[:n_edge], ys[-n_edge:]])
+        
+        coeffs = np.polyfit(x_base, y_base, deg=baseline_poly_order)
+        base = np.polyval(coeffs, xs)
+        ys = ys - base
+        
+        # Warning for improper baseline correction
+        if np.trapezoid(ys, xs) < 0:
+            warnings.warn(f"> Negative AUC detected - baseline may be inappropriate")
     
     return float(np.trapezoid(ys, xs)), (xs[0], xs[-1])
 
 
 # ============= COMPLETE WORKFLOW =============
 
-def analyze_raman_batch(folder, d_range, g_range, baseline, smooth, 
-                        smooth_window, smooth_polyorder, skiprows):
+def analyze_raman_batch(folder, d_range, g_range, baseline, baseline_poly_order, 
+                        smooth, smooth_window, smooth_polyorder, skiprows):
     
+    # Validation for overlapping ranges (very uncommon)
+    if d_range[1] > g_range[0]:
+        print(" >  Warning: D and G ranges overlap. Results may not be meaningful.")
+
     # Load all files
     all_data = load_batch_raman(folder, skiprows=skiprows)
     
@@ -169,7 +192,8 @@ def analyze_raman_batch(folder, d_range, g_range, baseline, smooth,
             # Calculate D-band AUC
             d_auc, d_bounds = auc_inward(
                 x, y, *d_range, 
-                baseline=baseline, 
+                baseline=baseline,
+                baseline_poly_order=baseline_poly_order,  
                 smooth=smooth, 
                 smooth_window=smooth_window,
                 smooth_polyorder=smooth_polyorder
@@ -178,7 +202,8 @@ def analyze_raman_batch(folder, d_range, g_range, baseline, smooth,
             # Calculate G-band AUC
             g_auc, g_bounds = auc_inward(
                 x, y, *g_range, 
-                baseline=baseline, 
+                baseline=baseline,
+                baseline_poly_order=baseline_poly_order, 
                 smooth=smooth, 
                 smooth_window=smooth_window,
                 smooth_polyorder=smooth_polyorder
@@ -226,6 +251,7 @@ if __name__ == "__main__":
         d_range=(1100, 1500),
         g_range=(1500, 1750),
         baseline='linear',
+        baseline_poly_order=2,
         smooth=False,          # Use smoothing if data is noisy
         smooth_window=11,
         smooth_polyorder=3,
