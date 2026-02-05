@@ -334,9 +334,10 @@ class RamanGUI:
         p = self._get_params()
         if p is None:
             return
-
+        
         # reset everything
         self._clear_log()
+        self.results_df = None
         for row in self.tree.get_children():
             self.tree.delete(row)
 
@@ -439,8 +440,8 @@ class RamanGUI:
             self.status.set(f"Error — {error}")
             messagebox.showerror("Error", error)
         else:
-            self._populate()
-            self.last_params = params
+            self.last_params = params     # ← Set FIRST
+            self._populate()              # ← Called SECOND
             
             # Generate plot in main thread if data provided
             if plot_data:
@@ -519,25 +520,29 @@ class RamanGUI:
 
     def _on_click_outside_tree(self, event):
         """Clear tree selection when clicking outside the treeview."""
-        # Don't clear if clicking on the tree itself or its scrollbar
         widget = event.widget
         
-        # Check if click is on tree or any of its child widgets
+        # Don't clear if clicking on tree, buttons, or interactive widgets
         if widget == self.tree:
             return
         
-        # Check if it's the tree's parent (the wrapper frame containing scrollbar)
+        # Check widget type - don't clear for buttons or other controls
+        widget_class = widget.winfo_class()
+        if widget_class in ('TButton', 'Button'):
+            return
+        
+        # Check if it's the tree's parent (wrapper frame containing scrollbar)
         parent = widget
         while parent:
             if parent == self.tree:
                 return
             parent = parent.master if hasattr(parent, 'master') else None
         
-        # Clear selection for any other widget
+        # Clear selection for background clicks
         self._clear_selection()
         
-        widget_type = widget.winfo_class()
-        if widget_type not in ('Entry', 'Text', 'TCombobox', 'Combobox'):
+        # Only set focus for non-interactive widgets
+        if widget_class not in ('Entry', 'Text', 'TCombobox', 'Combobox'):
             self.root.focus_set()
 
     def _preview_selected(self):
