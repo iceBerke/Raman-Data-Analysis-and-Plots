@@ -48,6 +48,8 @@ class RamanGUI:
         self._styles()
         self._build()
 
+        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
+
     # ─── STYLES ──────────────────────────────────────────
     def _styles(self):
         s = ttk.Style()
@@ -104,6 +106,7 @@ class RamanGUI:
         # ──────────── INPUT ──────────────────────────────
         inp = ttk.LabelFrame(self.root, text=" Input ", padding=(12, 10))
         inp.pack(fill=tk.X, padx=15, pady=(14, 4))
+        inp.columnconfigure(1, weight=1)
 
         # single / batch radio buttons
         mf = ttk.Frame(inp)
@@ -116,10 +119,12 @@ class RamanGUI:
 
         # path entry + browse
         ttk.Label(inp, text="Path:").grid(row=1, column=0, sticky=tk.W)
-        self.path_entry = tk.Entry(inp, textvariable=self.selected_path, width=74,
-                                   bg=C_ENTRY, fg=C_FG, insertbackground=C_FG,
-                                   relief=tk.FLAT, bd=4, font=("Helvetica", 9))
-        self.path_entry.grid(row=1, column=1, padx=(8, 6))
+
+        self.path_entry = tk.Entry(inp, textvariable=self.selected_path,
+                           bg=C_ENTRY, fg=C_FG, insertbackground=C_FG,
+                           relief=tk.FLAT, bd=4, font=("Helvetica", 9))
+        self.path_entry.grid(row=1, column=1, padx=(8, 6), sticky=tk.EW)  # ← Add sticky=tk.EW
+        
         ttk.Button(inp, text="Browse…", style="Sub.TButton",
                    command=self._browse).grid(row=1, column=2)
 
@@ -239,6 +244,24 @@ class RamanGUI:
         self.status = tk.StringVar(value="Ready")
         ttk.Label(self.root, textvariable=self.status, style="Status.TLabel",
                   anchor=tk.W).pack(fill=tk.X, side=tk.BOTTOM)
+        
+        self.root.bind('<Button-1>', self._on_click_outside_tree)
+
+    def _on_closing(self):
+        """Handle application closing."""
+        # Check if analysis is running
+        if self.run_btn['state'] == 'disabled':
+            response = messagebox.askyesno(
+                "Analysis Running",
+                "An analysis is currently running. Force quit?")
+            if not response:
+                return
+        
+        # Close any matplotlib windows
+        plt.close('all')
+        
+        # Destroy the root window
+        self.root.destroy()
 
     # ─────────────────────────────────────────────────────
     #  WIDGET CALLBACKS
@@ -301,7 +324,7 @@ class RamanGUI:
             )
         except ValueError:
             messagebox.showerror("Error", "One or more fields contain invalid values.\n"
-                                          "Ranges must be numbers; window / poly / skiprows must be integers.")
+                                          "ranges must be float numbers; window / poly / skiprows must be integers.")
             return None
 
     # ─────────────────────────────────────────────────────
@@ -316,6 +339,8 @@ class RamanGUI:
         self._clear_log()
         for row in self.tree.get_children():
             self.tree.delete(row)
+
+        self._clear_selection()    
         self.summary_lbl.config(text="")
         self.export_btn.config(state="disabled")
         self.preview_btn.config(state="disabled")
@@ -330,6 +355,9 @@ class RamanGUI:
         orig = sys.stdout
         buf  = io.StringIO()
         sys.stdout = buf
+        
+        error_msg = None
+        plot_data = None  # Will hold data for plotting in main thread
 
         try:
             if p["mode"] == "single":
@@ -362,18 +390,20 @@ class RamanGUI:
                     "AUC(D)/AUC(G)": d_auc / g_auc,
                 }])
                 
-                # Generate plot if requested
+                # Store data for plotting in main thread
                 if p["show_plot"]:
-                    fig = raman.plot_auc_analysis(
-                        x, y, p["d_range"], p["g_range"],
-                        baseline=p["baseline"], 
-                        baseline_poly_order=p["baseline_poly_order"],
-                        smooth=p["smooth"], 
-                        smooth_window=p["smooth_window"],
-                        smooth_polyorder=p["smooth_polyorder"],
-                        title=Path(p["path"]).stem
-                    )
-                    self.root.after(0, self._show_plot, fig)
+                    plot_data = {
+                        'x': x,
+                        'y': y,
+                        'd_range': p["d_range"],
+                        'g_range': p["g_range"],
+                        'baseline': p["baseline"],
+                        'baseline_poly_order': p["baseline_poly_order"],
+                        'smooth': p["smooth"],
+                        'smooth_window': p["smooth_window"],
+                        'smooth_polyorder': p["smooth_polyorder"],
+                        'title': Path(p["path"]).stem
+                    }
 
             else:   # batch
                 self.results_df = raman.analyze_raman_batch(
@@ -389,18 +419,18 @@ class RamanGUI:
                 )
                 self.results_df = self.results_df.reset_index().rename(columns={"index": "Sample"})
 
-            self.root.after(0, self._finish, buf.getvalue(), None, p)
-
         except Exception as e:
-            self.root.after(0, self._finish, buf.getvalue(), str(e), p)
-
+            error_msg = str(e)
+        
         finally:
             sys.stdout = orig
+            # Always call finish, passing plot_data if available
+            self.root.after(0, self._finish, buf.getvalue(), error_msg, p, plot_data)
 
     # ─────────────────────────────────────────────────────
     #  FINISH — runs back on the main thread
     # ─────────────────────────────────────────────────────
-    def _finish(self, log_txt, error, params):
+    def _finish(self, log_txt, error, params, plot_data=None):
         if log_txt:
             self._log(log_txt)
 
@@ -411,6 +441,23 @@ class RamanGUI:
         else:
             self._populate()
             self.last_params = params
+            
+            # Generate plot in main thread if data provided
+            if plot_data:
+                try:
+                    fig = raman.plot_auc_analysis(
+                        plot_data['x'], plot_data['y'],
+                        plot_data['d_range'], plot_data['g_range'],
+                        baseline=plot_data['baseline'],
+                        baseline_poly_order=plot_data['baseline_poly_order'],
+                        smooth=plot_data['smooth'],
+                        smooth_window=plot_data['smooth_window'],
+                        smooth_polyorder=plot_data['smooth_polyorder'],
+                        title=plot_data['title']
+                    )
+                    self._show_plot(fig)
+                except Exception as e:
+                    self._log(f"\n⚠️  Plot generation failed: {e}\n")
 
         self.run_btn.config(state="normal")
 
@@ -441,7 +488,7 @@ class RamanGUI:
         self.export_btn.config(state="normal")
         
         # Enable preview and export plots buttons for batch mode
-        if hasattr(self, 'last_params') and self.last_params.get('mode') == 'batch':
+        if self.last_params and self.last_params.get('mode') == 'batch':
             self.preview_btn.config(state="normal")
             self.export_plots_btn.config(state="normal")
         
@@ -464,6 +511,34 @@ class RamanGUI:
         # Add toolbar for zoom/pan/save
         toolbar = NavigationToolbar2Tk(canvas, plot_window)
         toolbar.update()
+
+    def _clear_selection(self):
+        """Clear treeview selection."""
+        for item in self.tree.selection():
+            self.tree.selection_remove(item)
+
+    def _on_click_outside_tree(self, event):
+        """Clear tree selection when clicking outside the treeview."""
+        # Don't clear if clicking on the tree itself or its scrollbar
+        widget = event.widget
+        
+        # Check if click is on tree or any of its child widgets
+        if widget == self.tree:
+            return
+        
+        # Check if it's the tree's parent (the wrapper frame containing scrollbar)
+        parent = widget
+        while parent:
+            if parent == self.tree:
+                return
+            parent = parent.master if hasattr(parent, 'master') else None
+        
+        # Clear selection for any other widget
+        self._clear_selection()
+        
+        widget_type = widget.winfo_class()
+        if widget_type not in ('Entry', 'Text', 'TCombobox', 'Combobox'):
+            self.root.focus_set()
 
     def _preview_selected(self):
         """Preview plot for selected row in batch results."""
@@ -499,6 +574,8 @@ class RamanGUI:
                 title=sample_name
             )
             self._show_plot(fig)
+
+            self._clear_selection()
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to generate plot:\n{str(e)}")
