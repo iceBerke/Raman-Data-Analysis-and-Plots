@@ -1,6 +1,10 @@
 # TKinter-based GUI for the Raman Spectroscopy AUC Analysis Tool.
 # Imports analysis functions from  AUC_calculation_v2.py
 
+# AUTHOR: Berke Santos
+# Developed with the help of Claude.AI 
+# Created: 05/02/2026
+
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import threading, sys, io
