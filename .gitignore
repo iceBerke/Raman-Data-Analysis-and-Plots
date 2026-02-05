@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*~
+
+# Virtual environments
+.venv/
+venv/
+
+# --------------------
+# PyCharm / IntelliJ
+# --------------------
+.idea/
+*.iml
+
+# VS Code (optional but recommended)
+.vscode/
+
+# Data / outputs (adjust for your work)
+*.csv
+*.tif
+*.tiff
+results/
+output/
