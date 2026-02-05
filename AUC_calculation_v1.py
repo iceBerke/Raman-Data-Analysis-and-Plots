@@ -209,34 +209,33 @@ def analyze_raman_batch(folder, d_range, g_range, baseline, smooth,
 if __name__ == "__main__":
     
     # Example 1: Load single file
-    x, y = load_raman_data(r"C:\Users\berke.santos\Documents\CEMHTI\RAMAN\Rhynie\non-irr\RT\Rhynie-RT-LS-01-CM 125000 to 250000-Average-SubBkg-poly4.txt")
-    print(f"Loaded {len(x)} points from {x[0]:.1f} to {x[-1]:.1f} cm⁻¹")
+    #x, y = load_raman_data(r"C:\Users\berke.santos\Documents\CEMHTI\RAMAN\Rhynie\non-irr\RT\Rhynie-RT-LS-01-CM 125000 to 250000-Average-SubBkg-poly4.txt")
+    #print(f"Loaded {len(x)} points from {x[0]:.1f} to {x[-1]:.1f} cm⁻¹")
 
-    d_auc, d_bounds = auc_inward(x, y, 1100, 1500, baseline="linear", smooth=False, smooth_window=11, smooth_polyorder=3)
-    g_auc, g_bounds = auc_inward(x, y, 1500, 1750, baseline="linear", smooth=False, smooth_window=11, smooth_polyorder=3)
-    ratio = d_auc / g_auc
+    #d_auc, d_bounds = auc_inward(x, y, 1100, 1500, baseline="linear", smooth=False, smooth_window=11, smooth_polyorder=3)
+    #g_auc, g_bounds = auc_inward(x, y, 1500, 1750, baseline="linear", smooth=False, smooth_window=11, smooth_polyorder=3)
+    #ratio = d_auc / g_auc
     
-    print(f"\nD-band: AUC = {d_auc:.2f}, range = {d_bounds}")
-    print(f"G-band: AUC = {g_auc:.2f}, range = {g_bounds}")
-    print(f"AUC_D/AUC_G = {ratio:.3f}")
+    #print(f"\nD-band: AUC = {d_auc:.2f}, range = {d_bounds}")
+    #print(f"G-band: AUC = {g_auc:.2f}, range = {g_bounds}")
+    #print(f"AUC_D/AUC_G = {ratio:.3f}")
     
     # Example 2: Batch process entire folder
-    # results = analyze_raman_batch(
-    #    folder=r"",
-    #    d_range=(1300, 1400),
-    #    g_range=(1550, 1650),
-    #    baseline='linear',
-    #    smooth=True,          # Use smoothing if data is noisy
-    #    smooth_window=11,
-    #    smooth_polyorder=3,
-    #    skiprows=0            # Set to 1 if files have header row
-    #)
+    results = analyze_raman_batch(
+        folder=r"C:\Users\berke.santos\Documents\CEMHTI\RAMAN\Rhynie\non-irr\RT",
+        d_range=(1100, 1500),
+        g_range=(1500, 1750),
+        baseline='linear',
+        smooth=False,          # Use smoothing if data is noisy
+        smooth_window=11,
+        smooth_polyorder=3,
+        skiprows=0            # Set to 1 if files have header row
+    )
     
     # Display results
-    #print("\n" + "="*60)
-    #print(results)
-    #results.to_csv("raman_results.csv")
+    print("\n" + "="*60)
+    print(results)
     
     # Summary statistics
-    #print("\nSummary Statistics:")
-    #print(f"  Mean AUC_D/AUC_G: {results['AUC(D)/AUC(G)'].mean():.3f} ± {results['AUC(D)/AUC(G)'].std():.3f}")
+    print("\nSummary Statistics:")
+    print(f"  Mean AUC_D/AUC_G: {results['AUC(D)/AUC(G)'].mean():.3f} ± {results['AUC(D)/AUC(G)'].std():.3f}")
