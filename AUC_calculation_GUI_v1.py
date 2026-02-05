@@ -131,9 +131,16 @@ class RamanGUI:
 
         # baseline dropdown
         ttk.Label(par, text="Baseline:").grid(row=2, column=0, sticky=tk.W, padx=(0, 6), pady=4)
-        self.baseline = ttk.Combobox(par, values=["none", "linear"], state="readonly", width=10)
+        self.baseline = ttk.Combobox(par, values=["none", "linear", "polynomial"], state="readonly", width=10)
+        self.baseline.bind("<<ComboboxSelected>>", self._toggle_baseline_poly)  # Add callback
+
         self.baseline.set("linear")
         self.baseline.grid(row=2, column=1, pady=4)
+
+        # baseline polynomial order
+        ttk.Label(par, text="Poly Order:").grid(row=2, column=2, pady=4, padx=(12, 4))
+        self.baseline_poly = ent(par, 2, 3, "2", w=5)
+        self.baseline_poly.config(state="disabled")  # Start disabled
 
         # separator between baseline and smoothing
         ttk.Separator(par, orient=tk.VERTICAL).grid(row=2, column=4, padx=18, pady=4, sticky="ns")
@@ -227,6 +234,11 @@ class RamanGUI:
         if p:
             self.selected_path.set(p)
 
+    def _toggle_baseline_poly(self, event=None):
+
+        st = "normal" if self.baseline.get() == "polynomial" else "disabled"
+        self.baseline_poly.config(state=st)
+
     def _toggle_smooth(self):
 
         st = "normal" if self.smooth_var.get() else "disabled"
@@ -261,6 +273,7 @@ class RamanGUI:
                 d_range          = (float(self.d_min.get()), float(self.d_max.get())),
                 g_range          = (float(self.g_min.get()), float(self.g_max.get())),
                 baseline         = self.baseline.get(),
+                baseline_poly_order = int(self.baseline_poly.get()),  
                 smooth           = self.smooth_var.get(),
                 smooth_window    = int(self.sw.get()),
                 smooth_polyorder = int(self.sp.get()),
@@ -304,11 +317,11 @@ class RamanGUI:
 
                 d_auc, d_bnd = raman.auc_inward(
                     x, y, *p["d_range"],
-                    baseline=p["baseline"], smooth=p["smooth"],
+                    baseline=p["baseline"], baseline_poly_order=p["baseline_poly_order"], smooth=p["smooth"],
                     smooth_window=p["smooth_window"], smooth_polyorder=p["smooth_polyorder"])
                 g_auc, g_bnd = raman.auc_inward(
                     x, y, *p["g_range"],
-                    baseline=p["baseline"], smooth=p["smooth"],
+                    baseline=p["baseline"], baseline_poly_order=p["baseline_poly_order"], smooth=p["smooth"],
                     smooth_window=p["smooth_window"], smooth_polyorder=p["smooth_polyorder"])
 
                 self.results_df = pd.DataFrame([{
@@ -326,6 +339,7 @@ class RamanGUI:
                     d_range          = p["d_range"],
                     g_range          = p["g_range"],
                     baseline         = p["baseline"],
+                    baseline_poly_order = p["baseline_poly_order"],
                     smooth           = p["smooth"],
                     smooth_window    = p["smooth_window"],
                     smooth_polyorder = p["smooth_polyorder"],

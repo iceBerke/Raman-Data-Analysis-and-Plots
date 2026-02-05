@@ -155,7 +155,10 @@ def auc_inward(x, y, a, b, baseline, baseline_poly_order, smooth, smooth_window,
 
     elif baseline == "polynomial":
         # Use only the edges (first/last ~10% of points) to define baseline
+        # Do not use more than 25%
         n_edge = max(5, len(xs) // 10)
+        n_edge = min(n_edge, len(xs) // 4)
+        
         x_base = np.concatenate([xs[:n_edge], xs[-n_edge:]])
         y_base = np.concatenate([ys[:n_edge], ys[-n_edge:]])
         
