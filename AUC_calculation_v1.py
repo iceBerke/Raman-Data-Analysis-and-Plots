@@ -19,7 +19,9 @@
 #    g_range : tuple
 #        G-band integration range in cm⁻¹ (typically 1550-1650)
 #    baseline : str
-#        "none" or "linear" (linear connects endpoints)
+#        "none" or "linear" (linear connects endpoints) or "polynomial"
+#    baseline_poly_order : integer
+#        specific to polynomial baseline correction
 #    smooth : bool
 #        Apply Savitzky-Golay filter (recommended for noisy data)
 #    smooth_window : int
