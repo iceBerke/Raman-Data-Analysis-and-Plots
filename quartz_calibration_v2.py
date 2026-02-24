@@ -258,19 +258,19 @@ def centroid(x, y):
 # ---------------------------------------------------------------------------
 # USER SETTINGS
 # ---------------------------------------------------------------------------
-infile = r"C:\Users\berke.santos\Documents\CEMHTI\RAMAN\Quartz-calibrations\2026-02-10-afterCalib.txt"
+infile = r"C:\Users\berke.santos\Documents\CEMHTI\RAMAN\Quartz-calibrations\2026-02-24.txt"
 
 # spectral window around the ~464 cm-1 quartz band
 xmin, xmax = 410, 530
 
 # baseline regions: flat zones on either side of the peak
-bl_regions = [(410, 420), (510, 530)]
+bl_regions = [(415, 430), (505, 520)]
 
 # fit profile: 'lorentzian' or 'pseudo-voigt'
-profile = "lorentzian"
+profile = "pseudo-voigt"
 
 # laser wavelength correction (Fred's Excel replacement)
-nominal_laser_nm = 532.315          # current laser wavelength in software (nm)
+nominal_laser_nm = 532.360          # current laser wavelength in software (nm)
 quartz_theoretical = 464.500        # theoretical quartz position (cm⁻¹)
 
 # parabolic apex fit: number of points around the maximum to use
